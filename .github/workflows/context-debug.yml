@@ -1,0 +1,319 @@
+name: GitHub Context Debug
+
+# Make this workflow reusable - can be called from other workflows or manually triggered
+on:
+  # Allow manual triggering with optional inputs
+  workflow_dispatch:
+    inputs:
+      output_format:
+        description: "Output format (json or yaml)"
+        required: false
+        default: "json"
+        type: choice
+        options:
+          - json
+          - yaml
+      show_secrets:
+        description: "Show redacted secrets context (no actual secret values)"
+        required: false
+        default: false
+        type: boolean
+
+  # Allow this workflow to be called by other workflows
+  workflow_call:
+    inputs:
+      output_format:
+        description: "Output format (json or yaml)"
+        required: false
+        default: "json"
+        type: string
+      show_secrets:
+        description: "Show redacted secrets context (no actual secret values)"
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      summary_url:
+        description: "URL to the job summary with all context information"
+        value: ${{ jobs.debug-context.outputs.summary_url }}
+
+# Allow this job to be reusable across different environments
+jobs:
+  debug-context:
+    name: Debug GitHub Context
+    runs-on: ubuntu-latest
+    outputs:
+      summary_url: ${{ steps.set-output.outputs.summary_url }}
+
+    steps:
+      - name: Set up output format
+        id: format
+        run: |
+          if [[ "${{ inputs.output_format }}" == "yaml" ]]; then
+            echo "format=yaml" >> $GITHUB_OUTPUT
+            echo "Using YAML format for output"
+          else
+            echo "format=json" >> $GITHUB_OUTPUT
+            echo "Using JSON format for output (default)"
+          fi
+
+      - name: Install jq and yq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+          # Install yq for YAML format support
+          ARCH=$(uname -m)
+          VERSION=v4.45.2
+          if [ "$ARCH" = "x86_64" ]; then
+            BINARY="yq_linux_amd64"
+          else
+            BINARY="yq_linux_386"
+          fi
+
+          echo "Installing yq ${VERSION} for ${ARCH}"
+          wget -q https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY} -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      # Capture all standard contexts
+      - name: Capture GitHub Context
+        id: github-context
+        run: |
+          GITHUB_CONTEXT_FILE="${RUNNER_TEMP}/github_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(github) }}' | jq . | yq -P > "${GITHUB_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(github) }}' | jq . > "${GITHUB_CONTEXT_FILE}"
+          fi
+          echo "github_context_file=${GITHUB_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Job Context
+        id: job-context
+        run: |
+          JOB_CONTEXT_FILE="${RUNNER_TEMP}/job_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(job) }}' | jq . | yq -P > "${JOB_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(job) }}' | jq . > "${JOB_CONTEXT_FILE}"
+          fi
+          echo "job_context_file=${JOB_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Steps Context
+        id: steps-context
+        run: |
+          STEPS_CONTEXT_FILE="${RUNNER_TEMP}/steps_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(steps) }}' | jq . | yq -P > "${STEPS_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(steps) }}' | jq . > "${STEPS_CONTEXT_FILE}"
+          fi
+          echo "steps_context_file=${STEPS_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Runner Context
+        id: runner-context
+        run: |
+          RUNNER_CONTEXT_FILE="${RUNNER_TEMP}/runner_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(runner) }}' | jq . | yq -P > "${RUNNER_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(runner) }}' | jq . > "${RUNNER_CONTEXT_FILE}"
+          fi
+          echo "runner_context_file=${RUNNER_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Strategy Context
+        id: strategy-context
+        run: |
+          STRATEGY_CONTEXT_FILE="${RUNNER_TEMP}/strategy_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(strategy) }}' | jq . | yq -P > "${STRATEGY_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(strategy) }}' | jq . > "${STRATEGY_CONTEXT_FILE}"
+          fi
+          echo "strategy_context_file=${STRATEGY_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Matrix Context
+        id: matrix-context
+        run: |
+          MATRIX_CONTEXT_FILE="${RUNNER_TEMP}/matrix_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(matrix) }}' | jq . | yq -P > "${MATRIX_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(matrix) }}' | jq . > "${MATRIX_CONTEXT_FILE}"
+          fi
+          echo "matrix_context_file=${MATRIX_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Inputs Context
+        id: inputs-context
+        run: |
+          INPUTS_CONTEXT_FILE="${RUNNER_TEMP}/inputs_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(inputs) }}' | jq . | yq -P > "${INPUTS_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(inputs) }}' | jq . > "${INPUTS_CONTEXT_FILE}"
+          fi
+          echo "inputs_context_file=${INPUTS_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Capture Needs Context
+        id: needs-context
+        run: |
+          NEEDS_CONTEXT_FILE="${RUNNER_TEMP}/needs_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(needs) }}' | jq . | yq -P > "${NEEDS_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(needs) }}' | jq . > "${NEEDS_CONTEXT_FILE}"
+          fi
+          echo "needs_context_file=${NEEDS_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      # Optionally capture secrets context (redacted)
+      - name: Capture Secrets Context (Redacted)
+        id: secrets-context
+        if: ${{ inputs.show_secrets == true }}
+        run: |
+          SECRETS_CONTEXT_FILE="${RUNNER_TEMP}/secrets_context.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            echo '${{ toJson(secrets) }}' | jq . | yq -P > "${SECRETS_CONTEXT_FILE}"
+          else
+            echo '${{ toJson(secrets) }}' | jq . > "${SECRETS_CONTEXT_FILE}"
+          fi
+          echo "secrets_context_file=${SECRETS_CONTEXT_FILE}" >> $GITHUB_OUTPUT
+
+      # Capture common environment variables
+      - name: Capture Environment Variables
+        id: env-vars
+        run: |
+          ENV_VARS_FILE="${RUNNER_TEMP}/env_vars.txt"
+          {
+            echo "GITHUB_WORKFLOW: $GITHUB_WORKFLOW"
+            echo "GITHUB_RUN_ID: $GITHUB_RUN_ID"
+            echo "GITHUB_RUN_NUMBER: $GITHUB_RUN_NUMBER"
+            echo "GITHUB_ACTION: $GITHUB_ACTION"
+            echo "GITHUB_ACTIONS: $GITHUB_ACTIONS"
+            echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+            echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+            echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+            echo "GITHUB_EVENT_PATH: $GITHUB_EVENT_PATH"
+            echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+            echo "GITHUB_SHA: $GITHUB_SHA"
+            echo "GITHUB_REF: $GITHUB_REF"
+            echo "GITHUB_HEAD_REF: $GITHUB_HEAD_REF"
+            echo "GITHUB_BASE_REF: $GITHUB_BASE_REF"
+            echo "GITHUB_SERVER_URL: $GITHUB_SERVER_URL"
+            echo "GITHUB_API_URL: $GITHUB_API_URL"
+            echo "GITHUB_GRAPHQL_URL: $GITHUB_GRAPHQL_URL"
+            echo "RUNNER_OS: $RUNNER_OS"
+            echo "RUNNER_TEMP: $RUNNER_TEMP"
+            echo "RUNNER_TOOL_CACHE: $RUNNER_TOOL_CACHE"
+          } > "${ENV_VARS_FILE}"
+          echo "env_vars_file=${ENV_VARS_FILE}" >> $GITHUB_OUTPUT
+
+      # Capture the triggering event
+      - name: Capture Event Data
+        id: event-data
+        run: |
+          EVENT_DATA_FILE="${RUNNER_TEMP}/event_data.json"
+          if [[ "${{ steps.format.outputs.format }}" == "yaml" ]]; then
+            cat $GITHUB_EVENT_PATH | jq . | yq -P > "${EVENT_DATA_FILE}"
+          else
+            cat $GITHUB_EVENT_PATH | jq . > "${EVENT_DATA_FILE}"
+          fi
+          echo "event_data_file=${EVENT_DATA_FILE}" >> $GITHUB_OUTPUT
+
+      # Output all contexts to job summary
+      - name: Create Job Summary
+        run: |
+          {
+            echo "# GitHub Context Debug Summary"
+            echo "Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "## Workflow Details"
+            echo "- **Workflow Name:** $GITHUB_WORKFLOW"
+            echo "- **Run ID:** $GITHUB_RUN_ID"
+            echo "- **Run Number:** $GITHUB_RUN_NUMBER"
+            echo "- **Triggered By:** $GITHUB_ACTOR"
+            echo "- **Event Name:** $GITHUB_EVENT_NAME"
+            echo "- **Repository:** $GITHUB_REPOSITORY"
+            echo "- **Branch/Ref:** $GITHUB_REF"
+            echo "- **SHA:** $GITHUB_SHA"
+            echo
+
+            echo "## Environment Variables"
+            echo '```'
+            cat "${{ steps.env-vars.outputs.env_vars_file }}"
+            echo '```'
+            echo
+
+            echo "## GitHub Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.github-context.outputs.github_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Job Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.job-context.outputs.job_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Steps Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.steps-context.outputs.steps_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Runner Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.runner-context.outputs.runner_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Strategy Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.strategy-context.outputs.strategy_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Matrix Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.matrix-context.outputs.matrix_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Inputs Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.inputs-context.outputs.inputs_context_file }}"
+            echo '```'
+            echo
+
+            echo "## Needs Context"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.needs-context.outputs.needs_context_file }}"
+            echo '```'
+            echo
+
+            if [[ "${{ inputs.show_secrets }}" == "true" ]] && [[ -f "${{ steps.secrets-context.outputs.secrets_context_file }}" ]]; then
+              echo "## Secrets Context (Redacted)"
+              echo '```${{ steps.format.outputs.format }}'
+              cat "${{ steps.secrets-context.outputs.secrets_context_file }}"
+              echo '```'
+              echo
+            fi
+
+            echo "## Event Data"
+            echo '```${{ steps.format.outputs.format }}'
+            cat "${{ steps.event-data.outputs.event_data_file }}"
+            echo '```'
+
+          } >> $GITHUB_STEP_SUMMARY
+
+      # Set output for the job
+      - name: Set Output URL
+        id: set-output
+        run: echo "summary_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> $GITHUB_OUTPUT
+
+      # Final message with information about the output
+      - name: Output Context Information
+        run: |
+          echo "✅ Context debug information has been captured successfully!"
+          echo "📝 All details are available in the job summary."
+          echo "🔗 Summary URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
