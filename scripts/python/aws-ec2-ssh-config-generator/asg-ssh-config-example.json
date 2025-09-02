@@ -1,0 +1,44 @@
+{
+  "version": "2.0",
+  "configs": [
+    {
+      "name": "demo-cluster",
+      "asg_name": "demo-web-servers-asg",
+      "prefix": "demo",
+      "jump_hosts": [
+        {
+          "name": "primary",
+          "hostname": "bastion.demo.com",
+          "user": "ec2-user",
+          "port": 22,
+          "identity_file": "~/.ssh/demo-key.pem"
+        },
+        {
+          "name": "backup",
+          "hostname": "bastion2.demo.com",
+          "user": "ec2-user",
+          "port": 22,
+          "identity_file": "~/.ssh/demo-key.pem"
+        }
+      ],
+      "target_hosts": {
+        "user": "webapp",
+        "port": 22,
+        "identity_file": "~/.ssh/demo-app-key.pem",
+        "options": {
+          "StrictHostKeyChecking": "no",
+          "UserKnownHostsFile": "/dev/null"
+        }
+      },
+      "aws": {
+        "region": "us-west-2",
+        "profile": "default"
+      }
+    }
+  ],
+  "settings": {
+    "ssh_config_path": "~/.ssh/config",
+    "backup": true,
+    "backup_dir": "~/.ssh/backups"
+  }
+}
