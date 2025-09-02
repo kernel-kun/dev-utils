@@ -5,7 +5,7 @@ AWS ASG SSH Config Manager - Ultra Fast CLI Version
 Minimal dependency version using AWS CLI for maximum performance.
 No external dependencies required except AWS CLI.
 
-Author: Tushar Mittal
+Author: kernel-kun
 Date: September 2, 2025
 Version: 2.2.0 (Zero external dependencies)
 """
