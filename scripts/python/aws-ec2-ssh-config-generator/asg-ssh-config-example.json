@@ -2,37 +2,200 @@
   "version": "2.0",
   "configs": [
     {
-      "name": "demo-cluster",
-      "asg_name": "demo-web-servers-asg",
-      "prefix": "demo",
+      "name": "production-web-servers",
+      "asg_name": "prod-web-asg-us-east-1",
+      "prefix": "prod-web",
+      "jump_mode": "fallback",
       "jump_hosts": [
         {
           "name": "primary",
-          "hostname": "bastion.demo.com",
+          "hostname": "bastion-primary.example.com",
           "user": "ec2-user",
           "port": 22,
-          "identity_file": "~/.ssh/demo-key.pem"
+          "identity_file": "~/.ssh/production-bastion-key.pem",
+          "options": {
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null",
+            "LogLevel": "ERROR"
+          }
         },
         {
           "name": "backup",
-          "hostname": "bastion2.demo.com",
+          "hostname": "bastion-backup.example.com",
           "user": "ec2-user",
           "port": 22,
-          "identity_file": "~/.ssh/demo-key.pem"
+          "identity_file": "~/.ssh/production-bastion-key.pem",
+          "options": {
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null",
+            "LogLevel": "ERROR"
+          }
         }
       ],
       "target_hosts": {
         "user": "webapp",
         "port": 22,
-        "identity_file": "~/.ssh/demo-app-key.pem",
+        "identity_file": "~/.ssh/production-app-key.pem",
         "options": {
           "StrictHostKeyChecking": "no",
-          "UserKnownHostsFile": "/dev/null"
+          "UserKnownHostsFile": "/dev/null",
+          "LogLevel": "QUIET",
+          "ConnectTimeout": "10"
+        }
+      },
+      "aws": {
+        "region": "us-east-1",
+        "profile": "production"
+      }
+    },
+    {
+      "name": "staging-api-servers",
+      "asg_name": "staging-api-asg-us-west-2",
+      "prefix": "staging-api",
+      "jump_hosts": [
+        {
+          "name": "main",
+          "hostname": "jump.staging.example.com",
+          "user": "ubuntu",
+          "port": 2222,
+          "identity_file": "~/.ssh/staging-jump-key.pem"
+        }
+      ],
+      "target_hosts": {
+        "user": "api-service",
+        "port": 22,
+        "identity_file": "~/.ssh/staging-app-key.pem",
+        "options": {
+          "StrictHostKeyChecking": "yes",
+          "UserKnownHostsFile": "~/.ssh/known_hosts_staging",
+          "LogLevel": "INFO"
         }
       },
       "aws": {
         "region": "us-west-2",
-        "profile": "default"
+        "profile": "staging"
+      }
+    },
+    {
+      "name": "development-microservices",
+      "asg_name": "dev-microservices-asg",
+      "prefix": "dev-micro",
+      "jump_mode": "chain",
+      "jump_hosts": [
+        {
+          "name": "dev-gateway",
+          "hostname": "dev-gateway.internal.example.com",
+          "user": "developer",
+          "port": 22,
+          "identity_file": "~/.ssh/development-key.pem",
+          "options": {
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null",
+            "LogLevel": "DEBUG",
+            "LocalForward": "8080 localhost:8080"
+          }
+        },
+        {
+          "name": "dev-internal",
+          "hostname": "dev-internal.internal.example.com",
+          "user": "developer",
+          "port": 22,
+          "identity_file": "~/.ssh/development-key.pem"
+        }
+      ],
+      "target_hosts": {
+        "user": "app",
+        "port": 22,
+        "identity_file": "~/.ssh/development-key.pem",
+        "options": {
+          "StrictHostKeyChecking": "no",
+          "UserKnownHostsFile": "/dev/null",
+          "LogLevel": "DEBUG",
+          "ConnectTimeout": "5",
+          "ServerAliveInterval": "30"
+        }
+      },
+      "aws": {
+        "region": "us-west-2",
+        "profile": "development"
+      }
+    },
+    {
+      "name": "data-processing-cluster",
+      "asg_name": "data-proc-workers-asg",
+      "prefix": "data-proc",
+      "jump_hosts": [
+        {
+          "name": "secure-gateway",
+          "hostname": "secure-gw.datacenter.example.com",
+          "user": "dataops",
+          "port": 2222,
+          "identity_file": "~/.ssh/dataops-gateway-key.pem",
+          "options": {
+            "StrictHostKeyChecking": "yes",
+            "UserKnownHostsFile": "~/.ssh/datacenter_known_hosts",
+            "LogLevel": "INFO",
+            "Compression": "yes",
+            "CompressionLevel": "6"
+          }
+        }
+      ],
+      "target_hosts": {
+        "user": "hadoop",
+        "port": 22,
+        "identity_file": "~/.ssh/hadoop-cluster-key.pem",
+        "options": {
+          "StrictHostKeyChecking": "yes",
+          "UserKnownHostsFile": "~/.ssh/hadoop_known_hosts",
+          "LogLevel": "ERROR",
+          "ConnectTimeout": "15",
+          "TCPKeepAlive": "yes"
+        }
+      },
+      "aws": {
+        "region": "us-east-1",
+        "profile": "data-ops"
+      }
+    },
+    {
+      "name": "testing-environment",
+      "asg_name": "qa-test-runners-asg",
+      "prefix": "qa-test",
+      "jump_hosts": [
+        {
+          "name": "qa-bastion",
+          "hostname": "qa-bastion.test.example.com",
+          "user": "testuser",
+          "port": 22,
+          "identity_file": "~/.ssh/qa-test-key.pem",
+          "options": {
+            "StrictHostKeyChecking": "no",
+            "UserKnownHostsFile": "/dev/null",
+            "LogLevel": "QUIET"
+          }
+        },
+        {
+          "name": "qa-alt",
+          "hostname": "qa-alt.test.example.com",
+          "user": "testuser",
+          "port": 22,
+          "identity_file": "~/.ssh/qa-test-key.pem"
+        }
+      ],
+      "target_hosts": {
+        "user": "selenium",
+        "port": 22,
+        "identity_file": "~/.ssh/qa-runner-key.pem",
+        "options": {
+          "StrictHostKeyChecking": "no",
+          "UserKnownHostsFile": "/dev/null",
+          "LogLevel": "QUIET",
+          "ConnectTimeout": "8"
+        }
+      },
+      "aws": {
+        "region": "eu-west-1",
+        "profile": "qa"
       }
     }
   ],
