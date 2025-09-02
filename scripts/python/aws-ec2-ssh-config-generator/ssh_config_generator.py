@@ -198,7 +198,7 @@ def generate_configs_fast(
 
     # Generate jump host configs
     jump_aliases = []
-    for jump_host in jump_hosts:
+    for i, jump_host in enumerate(jump_hosts):
         name = jump_host["name"]
         alias = f"{prefix}-jumphost-{name}"
         jump_aliases.append(alias)
@@ -218,6 +218,13 @@ def generate_configs_fast(
             f"    AddKeysToAgent yes",
         ]
 
+        # For chaining mode, each jump host (except the first) connects through the previous one
+        jump_mode = config.get("jump_mode", "fallback")
+        if jump_mode == "chain" and i > 0:
+            # This jump host connects through the previous jump host
+            previous_alias = jump_aliases[i-1]
+            jump_config.append(f"    ProxyJump {previous_alias}")
+
         # Add custom options
         if "options" in jump_host:
             for key, value in jump_host["options"].items():
@@ -227,7 +234,15 @@ def generate_configs_fast(
         configs.append("\n".join(jump_config))
 
     # Generate instance configs
-    proxy_jump = ",".join(jump_aliases)
+    jump_mode = config.get("jump_mode", "fallback")
+    
+    if jump_mode == "chain":
+        # For chaining, connect through the last jump host only
+        # The chain is: client → jump1 → jump2 → ... → jumpN → target
+        proxy_jump = jump_aliases[-1] if jump_aliases else ""
+    else:
+        # For fallback, list all jump hosts as alternatives
+        proxy_jump = ",".join(jump_aliases)
 
     for instance in instances:
         host_alias = f"{prefix}-{instance['ip']}"
