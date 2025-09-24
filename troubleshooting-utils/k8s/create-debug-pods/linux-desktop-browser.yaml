@@ -1,0 +1,55 @@
+# Once the above has been created and deployed
+# Simply open k9s to port-forward the Deployment/Pod/Service and access the Environment over:
+# VNC – 5901
+# noVCN – 6901 (i.e at http://localhost:6091)
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ubuntu-browser-vnc
+  labels:
+    app: ubuntu-browser-vnc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ubuntu-browser-vnc
+  template:
+    metadata:
+      labels:
+        app: ubuntu-browser-vnc
+    spec:
+      containers:
+      - name: ubuntu-browser
+        image: consol/debian-xfce-vnc:latest
+        ports:
+        - containerPort: 5901    # VNC port
+        - containerPort: 6901    # noVNC (web) port
+        env:
+        - name: VNC_PW
+          value: "password123"   # Set VNC password
+        - name: VNC_RESOLUTION
+          value: "1280x1024"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+---
+# Optional: Not really required
+apiVersion: v1
+kind: Service
+metadata:
+  name: ubuntu-browser-vnc-service
+spec:
+  selector:
+    app: ubuntu-browser-vnc
+  ports:
+  - name: vnc
+    port: 5901
+    targetPort: 5901
+  - name: novnc
+    port: 6901
+    targetPort: 6901
