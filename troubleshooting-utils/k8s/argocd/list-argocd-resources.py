@@ -28,6 +28,7 @@ Examples:
     ./list-argocd-resources.py my-parent-app --output json   # Machine-parseable
     ./list-argocd-resources.py my-parent-app --output plain  # For piping (default)
 
+
     # Pipe to graph generation script
     ./list-argocd-resources.py my-parent-app --sync-status OutOfSync | ./generate-argocd-graph.py
 """
@@ -176,6 +177,12 @@ Examples:
         "--argocd-only",
         action="store_true",
         help="Only show ArgoCD-specific resources (Application, ApplicationSet, AppProject)",
+    )
+
+    parser.add_argument(
+        "--preserve-apps",
+        action="store_true",
+        help="Always include Application/ApplicationSet resources regardless of filters (useful for graph visualization)",
     )
 
     parser.add_argument(
@@ -333,6 +340,16 @@ class ArgocdApiClient:
                 )
                 sync = sync_lookup.get((group, kind, node_ns, rname), "Unknown")
                 version = node.get("version", "")
+                prefs = []
+                for pr in node.get("parentRefs") or []:
+                    prefs.append(
+                        {
+                            "group": pr.get("group", ""),
+                            "kind": pr.get("kind", ""),
+                            "namespace": pr.get("namespace", ""),
+                            "name": pr.get("name", ""),
+                        }
+                    )
                 if rname and kind:
                     resources.append(
                         {
@@ -344,6 +361,7 @@ class ArgocdApiClient:
                             "parentApp": name,
                             "syncStatus": sync,
                             "healthStatus": health,
+                            "parentRefs": prefs,
                         }
                     )
         else:
@@ -366,6 +384,7 @@ class ArgocdApiClient:
                             "parentApp": name,
                             "syncStatus": res.get("status", "Unknown"),
                             "healthStatus": health,
+                            "parentRefs": [],
                         }
                     )
 
@@ -446,6 +465,7 @@ async def discover_resources_async(
     health_statuses: List[str],
     argocd_only: bool,
     max_depth: Optional[int] = None,
+    preserve_apps: bool = False,
 ) -> List[Dict[str, Any]]:
     all_resources: List[Dict[str, Any]] = []
     visited: Set[str] = set()
@@ -498,10 +518,14 @@ async def discover_resources_async(
                     "parentApp": resource.get("parentApp", ""),
                     "syncStatus": resource.get("syncStatus", "Unknown"),
                     "healthStatus": resource.get("healthStatus", "Unknown"),
+                    "parentRefs": resource.get("parentRefs", []),
                 }
-                passes = (
-                    not sync_statuses or entry["syncStatus"] in sync_statuses
-                ) and (not health_statuses or entry["healthStatus"] in health_statuses)
+                passes = (preserve_apps and is_argocd_application(resource)) or (
+                    (not sync_statuses or entry["syncStatus"] in sync_statuses)
+                    and (
+                        not health_statuses or entry["healthStatus"] in health_statuses
+                    )
+                )
                 if passes:
                     all_resources.append(entry)
 
@@ -598,6 +622,7 @@ def main():
                     health_statuses=args.health_status,
                     argocd_only=args.argocd_only,
                     max_depth=args.depth if args.depth is not None else None,
+                    preserve_apps=args.preserve_apps,
                 )
 
         resources = asyncio.run(_run())
