@@ -297,10 +297,13 @@ class ArgocdApiClient:
                 rname = node.get("name", "")
                 health = node.get("health", {}).get("status", "Unknown") if isinstance(node.get("health"), dict) else "Unknown"
                 sync = sync_lookup.get((group, kind, node_ns, rname), "Unknown")
+                version = node.get("version", "")
                 if rname and kind:
                     resources.append({
                         "name": rname, "kind": kind, "group": group,
-                        "namespace": node_ns, "syncStatus": sync, "healthStatus": health,
+                        "version": version, "namespace": node_ns,
+                        "parentApp": name,
+                        "syncStatus": sync, "healthStatus": health,
                     })
         else:
             for res in app_data.get("status", {}).get("resources", []):
@@ -310,7 +313,8 @@ class ArgocdApiClient:
                     health = res.get("health", {}).get("status", "Unknown") if isinstance(res.get("health"), dict) else "Unknown"
                     resources.append({
                         "name": rname, "kind": kind, "group": res.get("group", ""),
-                        "namespace": res.get("namespace", ""),
+                        "version": res.get("version", ""), "namespace": res.get("namespace", ""),
+                        "parentApp": name,
                         "syncStatus": res.get("status", "Unknown"), "healthStatus": health,
                     })
 
@@ -431,7 +435,10 @@ async def discover_resources_async(
                 entry = {
                     "name": resource["name"],
                     "kind": resource["kind"],
+                    "group": resource.get("group", ""),
+                    "version": resource.get("version", ""),
                     "namespace": resource["namespace"],
+                    "parentApp": resource.get("parentApp", ""),
                     "syncStatus": resource.get("syncStatus", "Unknown"),
                     "healthStatus": resource.get("healthStatus", "Unknown"),
                 }
